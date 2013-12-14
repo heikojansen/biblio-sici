@@ -71,9 +71,9 @@ the correct code sinks even more.
 sub titleCode_from_title {
 	my $title = shift;
 
-	die "Expected title string as parameter" unless defined($title) and $title; 
+	die "Expected title string as parameter" unless defined($title) and $title;
 
-	my $code    = '';
+	my $code = '';
 
 	try {
 		require Text::Unidecode;

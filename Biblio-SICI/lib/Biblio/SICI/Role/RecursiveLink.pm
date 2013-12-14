@@ -7,6 +7,7 @@ use warnings;
 
 use Moo::Role;
 use Sub::Quote;
+
 =pod
 
 =encoding utf-8

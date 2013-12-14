@@ -152,7 +152,7 @@ has 'mode' => (
 		return $val if ( $val eq 'strict' or $val eq 'lax' );
 		return 'lax';
 	},
-	default  => 'lax',
+	default => 'lax',
 );
 
 =item C<parsedString>
@@ -343,7 +343,6 @@ sub checkchar {
 
 	return calculate_check_char($siciAsString);
 }
-
 
 =item C<reset>()
 
