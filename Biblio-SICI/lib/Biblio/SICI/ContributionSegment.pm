@@ -160,6 +160,9 @@ sub to_string {
 
 Resets all attributes to their default values.
 
+Resetting the contribution segment also resets the value of the
+C<csi> attribute in the control segment!  
+
 =cut
 
 sub reset {
