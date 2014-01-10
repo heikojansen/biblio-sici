@@ -44,13 +44,17 @@ The I<Code Structure Identifier> tells something about which parts of the
 SICI carry values.
 It can take one of three values:
 
-  B<1> => SICI for Serial Item
-  B<2> => SICI for Serial Contribution
-  B<3> => SICI for Serial Contribution "with obscure numbering"
+B<1> => SICI for Serial Item
+B<2> => SICI for Serial Contribution
+B<3> => SICI for Serial Contribution "with obscure numbering"
 
 Unless a value is explicitly set the object tries to automatically derive the
 correct value from analysing the contribution segment.
 If no data is present in the contribution segment the final default is B<1>.
+
+Please note: explicitly setting the C<csi> to C<1> resets the contribution 
+segment; explicitly setting the C<csi> to C<2> removes any value from the
+C<localNumber> attribute in the contribution segment!
 
 =cut
 
@@ -82,6 +86,14 @@ sub _trigger_csi {
 		$self->clear_problem_on('csi');
 	}
 
+	if ( $newVal == 1 ) {
+		$self->_sici()->contribution()->reset();
+	}
+	elsif ( $newVal == 2 ) {
+		$self->_sici()->contribution()->clear_localNumber();
+		$self->_sici()->contribution()->clear_problem_on('localNumber');
+	}
+
 	return;
 }
 
@@ -90,10 +102,10 @@ sub _trigger_csi {
 The I<Derivative Part Identifier> tells us, what kind of I<thing> is described
 by the SICI. It can take one of four different values:
 
-  B<0> => SICI describes Serial Item or Contribution itself
-  B<1> => SICI describes ToC of Serial Item or Contribution
-  B<2> => SICI describes Index of Serial Item or Contribution
-  B<3> => SICI describes Abstract of Serial Item or Contribution
+B<0> => SICI describes Serial Item or Contribution itself
+B<1> => SICI describes ToC of Serial Item or Contribution
+B<2> => SICI describes Index of Serial Item or Contribution
+B<3> => SICI describes Abstract of Serial Item or Contribution
 
 The default value is B<0>.
 
@@ -124,22 +136,22 @@ sub _trigger_dpi {
 
 The I<Medium / Format Identifier> can take one of these codes:
 
-  B<CD> => Computer-readable optical media (CD-ROM)
-  B<CF> => Computer-readable magnetic disk media
-  B<CO> => Online (remote)
-  B<CT> => Computer-readable magnetic tape media
-  B<HD> => Microfilm
-  B<HE> => Microfiche
-  B<SC> => Sound recording
-  B<TB> => Braille
-  B<TH> => Printed text, hardbound
-  B<TL> => Printed text, looseleaf
-  B<TS> => Printed text, softcover
-  B<TX> => Printed text
-  B<VX> => Video recording
-  B<ZN> => Multiple physical forms
-  B<ZU> => Physical form unknown
-  B<ZZ> => Other physical form 
+B<CD> => Computer-readable optical media (CD-ROM)
+B<CF> => Computer-readable magnetic disk media
+B<CO> => Online (remote)
+B<CT> => Computer-readable magnetic tape media
+B<HD> => Microfilm
+B<HE> => Microfiche
+B<SC> => Sound recording
+B<TB> => Braille
+B<TH> => Printed text, hardbound
+B<TL> => Printed text, looseleaf
+B<TS> => Printed text, softcover
+B<TX> => Printed text
+B<VX> => Video recording
+B<ZN> => Multiple physical forms
+B<ZU> => Physical form unknown
+B<ZZ> => Other physical form 
 
 The default value is B<ZU>.
 
