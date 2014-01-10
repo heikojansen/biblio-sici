@@ -16,7 +16,8 @@ foreach (
 	[ '0361-526X(2011)17:3/4<60-61:AAAAAA>2.0.ZU;2-', '0' ],
 	)
 {
-	is( calculate_check_char( $_->[0] ), $_->[1], 'check char calculation (subtest ' . $i++ . ')' );
+	my $cc = calculate_check_char( $_->[0] );
+	is( $cc, $_->[1], 'calculate check char (subtest ' . $i++ . ')' );
 }
 
 $i = 1;
@@ -30,8 +31,8 @@ foreach (
 	[ 'Boyz II Men, Adam jockeys for no. 1',                                     'BIMAJF' ],
 	)
 {
-	is( titleCode_from_title( $_->[0] ),
-		$_->[1], 'derived correct title code (subtest ' . $i++ . ')' );
+	my $tc = titleCode_from_title( $_->[0] );
+	is( $tc, $_->[1], 'derive correct title code (subtest ' . $i++ . ')' );
 }
 
 done_testing();
