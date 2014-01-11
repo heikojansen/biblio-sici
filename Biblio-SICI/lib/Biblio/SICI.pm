@@ -38,6 +38,13 @@ use Biblio::SICI::Util qw( calculate_check_char );
       say $sici->to_string;
   }
 
+=head1 WARNING
+
+This software is currently considered BETA. Things should work as intended
+and documented but if you use it you should test your own software extensively
+after any update to a new release of Biblio::SICI since both API and behaviour
+might have changed.
+
 =head1 DESCRIPTION
 
 A "Serial Item and Contribution Identifier" (SICI) is a code (ANSI/NISO
