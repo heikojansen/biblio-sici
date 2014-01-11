@@ -175,13 +175,25 @@ has 'parsedString' => ( is => 'rwp', init_arg => undef, );
 Tries to disassemble a string passed to it into the various
 components of a SICI.
 
-If I<strict> mode is enabled, it will C<die()> if no valid 
-SICI can be derived from the string.
+If I<strict> mode is enabled, it will C<die()> if either the
+string cannot be parsed or if no valid SICI can be derived 
+from the string.
 
-If I<lax> mode is enabled, it returns a list of two values 
-indicating if the derived SICI is valid (first value) and 
-if a round-trip using C<to_string()> would result in the 
-exact same string (second value). 
+If I<lax> mode is enabled, it returns a list of three values:
+
+The first value is C<undef> if parsing the string failed, or
+C<0> if the string could be parsed but the SICI is invalid, or 
+C<1> if a valid SICI was found.
+
+The second value is also C<undef> if parsing the string failed,
+or C<0> if the string could be parsed but serializing the SICI
+does not result in the exact same string or C<1> if we get a full 
+round-trip.
+
+The third value is a (possibly empty) array ref with a list of 
+problems the parser detected. B<Please note:> these problems
+are distinct from those reported by the C<list_problems> method
+and can be retrieved again later.
 
 =cut
 
@@ -189,105 +201,169 @@ sub parse {
 	my ( $self, $string ) = @_;
 	my $strictMode = $self->mode() eq 'strict' ? 1 : 0;
 
+	if ( defined $string ) {
+		$string =~ s/\r/ /go;
+		$string =~ s/\n/ /go;
+		$string = join( '', split( " ", $string ) );
+	}
+
 	unless ($string) {
-		if ($strictMode) {
-			die 'no string to parse';
-		}
-		else {
-			return ( 0, undef );
-		}
+		$strictMode ? die 'no string to parse' : return ( undef, undef, ['no string to parse'] );
 	}
-
-	if ( $string =~ /;([0-9])-[0-9A-Z#]\Z/ ) {
-		if ( "$1" ne "2" ) {
-			if ($strictMode) {
-				die 'unhandled SICI version';
-			}
-			else {
-				return ( 0, undef );
-			}
-		}
-	}
-
-	my $mode = $self->mode();
 	$self->_set_parsedString($string);
 
-	my @chars = split( //, $string );
-	my $issn = '';
-	while ( exists( $chars[0] ) and $chars[0] =~ /[0-9X-]/ ) {
-		$issn .= shift @chars;
-	}
-	$self->item()->issn($issn) if $issn;
-	if ( exists( $chars[0] ) and $chars[0] eq '(' ) {
-		shift @chars;
-		my $chrono = '';
-		while ( exists( $chars[0] ) and $chars[0] =~ /[0-9\/]/ ) {
-			$chrono .= shift @chars;
+	my $checkChar = '';
+	if ( $string =~ /;([0-9])(?:-.)?\Z/ ) {
+		if ( "$1" ne "2" ) {
+			$strictMode
+				? die 'unsupported SICI version'
+				: return ( undef, undef, ['unsupported SICI version'] );
 		}
-		$self->item()->chronology($chrono);
+		else {
+			$self->control()->version(2);
+			if ( $string =~ s/;2-(.)\Z// ) {
+				$checkChar = $1;
+			}
+		}
 	}
-	if ( exists( $chars[0] ) and $chars[0] eq ')' ) {
+
+	my $parserProblems = [];
+
+	my @chars = split( //, $string );
+	my $tmp = '';
+	while ( exists( $chars[0] ) and $chars[0] !~ /[(<]/ ) {
+		$tmp .= shift @chars;
+	}
+
+	if ( $tmp and exists( $chars[0] ) ) {
+		if ( $chars[0] eq '(' ) {
+
+			# warn 'ISSN candidate: ' . $tmp;
+			$self->item()->issn($tmp);
+			shift @chars;
+		}
+		elsif ( $chars[0] eq '<' ) {
+			push @{$parserProblems}, "item information missing";
+
+			# warn 'Missing item info';
+			# warn 'Enumeration candidate: ' . $tmp;
+			if ( $tmp =~ /\A([A-Z0-9\/]+):([A-Z0-9\/]+)(?::([+*]))?\Z/ ) {
+				$self->item()->volume($1);
+				$self->item()->issue($2);
+				$self->item()->supplOrIdx($3) if $3;
+			}
+			elsif ($tmp) {
+				$self->item()->enumeration($tmp);
+			}
+			shift @chars;
+			goto CONTRIB;
+		}
+		else {
+			$strictMode ? die 'unparsable string' : return ( undef, undef, ['unparsable string'] );
+		}
+	} ## end if ( $tmp and exists( ...))
+	else {
+		$strictMode ? die 'unparsable string' : return ( undef, undef, ['unparsable string'] );
+	}
+
+	$tmp = '';
+	while ( exists( $chars[0] ) and $chars[0] ne ')' ) {
+		$tmp .= shift @chars;
+	}
+	if ( $tmp and exists( $chars[0] ) and $chars[0] eq ')' ) {
+
+		# warn 'Chronology candidate: ' . $tmp;
+		$self->item()->chronology($tmp);
 		shift @chars;
 	}
-	my $enum = '';
+	elsif ( exists( $chars[0] ) and $chars[0] eq ')' ) {
+		shift @chars;
+	}
+	else {
+		$strictMode ? die 'unparsable string' : return ( undef, undef, ['unparsable string'] );
+	}
+
+	$tmp = '';
 	while ( exists( $chars[0] ) and $chars[0] ne '<' ) {
-		$enum .= shift @chars;
+		$tmp .= shift @chars;
 	}
-	if ( $enum =~ /\A([A-Z0-9\/]+):([A-Z0-9\/]+)(?::([+*]))?\Z/ ) {
-		$self->item()->volume($1);
-		$self->item()->issue($2);
-		$self->item()->supplOrIdx($3) if $3;
-	}
-	elsif ($enum) {
-		$self->item()->enumeration($enum);
-	}
-	if ( exists( $chars[0] ) and $chars[0] eq '<' ) {
+	if ( $tmp and exists( $chars[0] ) and $chars[0] eq '<' ) {
+
+		# warn 'Enumeration candidate: ' . $tmp;
+		if ( $tmp =~ /\A([A-Z0-9\/]+):([A-Z0-9\/]+)(?::([+*]))?\Z/ ) {
+			$self->item()->volume($1);
+			$self->item()->issue($2);
+			$self->item()->supplOrIdx($3) if $3;
+		}
+		elsif ($tmp) {
+			$self->item()->enumeration($tmp);
+		}
 		shift @chars;
 	}
-	my $contrib = '';
-	while ( exists( $chars[0] ) and $chars[0] ne '>' ) {
-		$contrib .= shift @chars;
+	elsif ( exists( $chars[0] ) and $chars[0] eq '<' ) {
+		shift @chars;
 	}
-	if ($contrib) {
-		if ( $contrib =~ /\A::(.+)\Z/ ) {
+	else {
+		$strictMode ? die 'unparsable string' : return ( undef, undef, ['unparsable string'] );
+	}
+
+	CONTRIB:
+	$tmp = '';
+	while ( exists( $chars[0] ) and $chars[0] ne '>' ) {
+		$tmp .= shift @chars;
+	}
+	if ( $tmp and exists( $chars[0] ) and $chars[0] eq '>' ) {
+
+		# warn 'Contribution candidate: ' . $tmp;
+		if ( $tmp =~ /\A::(.+)\Z/ ) {
 			$self->contribution()->localNumber($1);
 		}
-		elsif ( $contrib =~ /\A:([^:]+)(?::(.+))?\Z/ ) {
+		elsif ( $tmp =~ /\A:([^:]+)(?::(.+))?\Z/ ) {
 			$self->contribution()->titleCode($1);
 			$self->contribution()->localNumber($2) if $2;
 		}
-		elsif ( $contrib =~ /\A([^:]+):([^:]+)(?::(.+))?\Z/ ) {
+		elsif ( $tmp =~ /\A([^:]+):([^:]+)(?::(.+))?\Z/ ) {
 			$self->contribution()->location($1);
 			$self->contribution()->titleCode($2);
 			$self->contribution()->localNumber($3) if $3;
 		}
 		else {
-			$self->contribution()->location($contrib);
+			$self->contribution()->location($tmp);
 		}
-	}
-	if ( exists( $chars[0] ) and $chars[0] eq '>' ) {
 		shift @chars;
 	}
-	if ( exists( $chars[0] ) ) {
-		$self->control()->csi( shift @chars );
+	elsif ( exists( $chars[0] ) and $chars[0] eq '>' ) {
+		shift @chars;
 	}
-	if ( exists( $chars[0] ) ) {
-		shift @chars;    # should be "."
+	else {
+		$strictMode ? die 'unparsable string' : return ( undef, undef, ['unparsable string'] );
 	}
+
+	my $csi = '';
+	if ( exists( $chars[0] ) ) {
+		$csi = shift @chars;
+	}
+
+	if ( exists( $chars[0] ) and $chars[0] eq '.' ) {
+		shift @chars;
+	}
+	elsif ( exists( $chars[0] ) ) {
+		shift(@chars) while ( $chars[0] ne '.' );
+	}
+
 	if ( exists( $chars[0] ) ) {
 		$self->control()->dpi( shift @chars );
 	}
-	if ( exists( $chars[0] ) ) {
-		shift @chars;    # should be "."
+
+	if ( exists( $chars[0] ) and $chars[0] eq '.' ) {
+		shift @chars;
 	}
+	elsif ( exists( $chars[0] ) ) {
+		shift(@chars) while ( $chars[0] ne '.' );
+	}
+
 	if ( exists( $chars[0] ) and exists( $chars[1] ) ) {
 		$self->control()->mfi( join( '', splice( @chars, 0, 2 ) ) );
-	}
-	if ( exists( $chars[0] ) ) {
-		shift @chars;    # should be ";"
-	}
-	if ( exists( $chars[0] ) ) {
-		$self->control()->version( shift @chars );
 	}
 
 	my $isValid = $self->is_valid();
@@ -295,8 +371,19 @@ sub parse {
 		die 'parsing failed: invalid SICI';
 	}
 
+	if ( $checkChar ne $self->checkchar() ) {
+		push @{$parserProblems}, "wrong check char; was '$checkChar', should have been '$1'";
+	}
+	if ( $checkChar !~ /\A[0-9A-Z#]\Z/ ) {
+		push @{$parserProblems}, 'invalid original check char';
+	}
+
+	if ( $self->control()->csi() ne $csi ) {
+		push @{$parserProblems}, 'wrong csi in string input';
+	}
+
 	my $roundTrip = ( $self->parsedString() eq $self->to_string() ? 1 : 0 );
-	return ( $isValid, $roundTrip );
+	return ( $isValid, $roundTrip, $parserProblems );
 } ## end sub parse
 
 =item C<to_string>
