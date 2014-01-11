@@ -174,8 +174,6 @@ sub reset {
 	$self->clear_localNumber();
 	$self->clear_problem_on('localNumber');
 
-	$self->_sici()->control()->clear_csi();
-
 	return;
 }
 
