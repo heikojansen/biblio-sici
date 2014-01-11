@@ -38,65 +38,6 @@ are provided.
 
 =over 4
 
-=item C<csi>
-
-The I<Code Structure Identifier> tells something about which parts of the
-SICI carry values.
-It can take one of three values:
-
-B<1> => SICI for Serial Item
-B<2> => SICI for Serial Contribution
-B<3> => SICI for Serial Contribution "with obscure numbering"
-
-Unless a value is explicitly set the object tries to automatically derive the
-correct value from analysing the contribution segment.
-If no data is present in the contribution segment the final default is B<1>.
-
-Please note: explicitly setting the C<csi> to C<1> resets the contribution 
-segment; explicitly setting the C<csi> to C<2> removes any value from the
-C<localNumber> attribute in the contribution segment!
-
-=cut
-
-has 'csi' => ( is => 'rw', trigger => 1, lazy => 1, predicate => 1, clearer => 1, builder => 1, );
-
-sub _build_csi {
-	my $self = shift;
-
-	if ( $self->_sici()->contribution()->has_localNumber() ) {
-		return 3;
-	}
-
-	if (   $self->_sici()->contribution()->has_location()
-		or $self->_sici()->contribution()->has_titleCode() )
-	{
-		return 2;
-	}
-
-	return 1;
-}
-
-sub _trigger_csi {
-	my ( $self, $newVal ) = @_;
-
-	if ( not( $newVal == 1 or $newVal == 2 or $newVal == 3 ) ) {
-		$self->log_problem_on( 'csi' => ['value not in allowed range (1|2|3)'] );
-	}
-	else {
-		$self->clear_problem_on('csi');
-	}
-
-	if ( $newVal == 1 ) {
-		$self->_sici()->contribution()->reset();
-	}
-	elsif ( $newVal == 2 ) {
-		$self->_sici()->contribution()->clear_localNumber();
-		$self->_sici()->contribution()->clear_problem_on('localNumber');
-	}
-
-	return;
-}
-
 =item C<dpi>
 
 The I<Derivative Part Identifier> tells us, what kind of I<thing> is described
@@ -122,7 +63,7 @@ has 'dpi' => (
 sub _trigger_dpi {
 	my ( $self, $newVal ) = @_;
 
-	if ( not( $newVal == 0 or $newVal == 1 or $newVal == 2 or $newVal == 3 ) ) {
+	if ( not( "$newVal" eq "0" or "$newVal" eq "1" or "$newVal" eq "2" or "$newVal" eq "3" ) ) {
 		$self->log_problem_on( 'dpi' => ['value not in allowed range (0|1|2|3)'] );
 	}
 	else {
@@ -208,6 +149,38 @@ sub _trigger_version {
 
 =over 4
 
+=item C<csi>
+
+The I<Code Structure Identifier> tells something about which parts of the
+SICI carry values.
+It can take one of three values:
+
+B<1> => SICI for Serial Item
+B<2> => SICI for Serial Contribution
+B<3> => SICI for Serial Contribution "with obscure numbering"
+
+This method automatically derives the correct value from the presence
+of the respective data elements in the item and contribution segments.
+If no data is present in the contribution segment the final default is B<1>.
+
+=cut
+
+sub csi {
+	my $self = shift;
+
+	if ( $self->_sici()->contribution()->has_localNumber() ) {
+		return 3;
+	}
+
+	if (   $self->_sici()->contribution()->has_location()
+		or $self->_sici()->contribution()->has_titleCode() )
+	{
+		return 2;
+	}
+
+	return 1;
+}
+
 =item STRING C<to_string>()
 
 Returns a stringified representation of the data in the
@@ -223,7 +196,7 @@ sub to_string {
 	my $self = shift;
 
 	# Every attribute in this class has a default value
-	return sprintf( '%d.%d.%s;%d', $self->csi(), $self->dpi(), $self->mfi(), $self->version() );
+	return sprintf( '%s.%s.%s;%s', $self->csi(), $self->dpi(), $self->mfi(), $self->version() );
 }
 
 =item C<reset>()
@@ -234,8 +207,6 @@ Resets all attributes to their default values.
 
 sub reset {
 	my $self = shift;
-	$self->clear_csi();
-	$self->clear_problem_on('csi');
 	$self->clear_dpi();
 	$self->clear_problem_on('dpi');
 	$self->clear_mfi();
