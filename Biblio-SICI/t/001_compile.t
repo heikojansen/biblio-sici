@@ -2,13 +2,18 @@ use strict;
 use warnings;
 use Test::More;
 
-use File::Find::Rule;
+use File::Find;
 
-my @files = File::Find::Rule->name('*.pm')->in('lib');
+my @files = ();
+sub wanted {
+	push( @files, $File::Find::name ) if /\.pm\Z/;
+}
+find( \&wanted, ("lib") );
+
 plan tests => scalar @files;
 
 for (@files) {
-	s/^lib.//;
+	s/^.*\blib\b.//;
 	s/.pm$//;
 	s{[\\/]}{::}g;
 

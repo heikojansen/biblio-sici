@@ -1,5 +1,7 @@
 
 {{$NEXT}}
+	- Get rid of File::Find::Rule dependency;
+		use in-core File::Find
 
 0.01      2014-01-11 21:09:48 Europe/Berlin
 	- Initial release
