@@ -1,5 +1,7 @@
 
 {{$NEXT}}
+
+0.03      2014-01-12 17:00:16 Europe/Berlin
 	- Get rid of File::Find::Rule dependency;
 		use in-core File::Find
 
