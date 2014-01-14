@@ -55,7 +55,7 @@ The default value is B<0>.
 has 'dpi' => (
 	is        => 'rw', lazy => 1,
 	trigger   => 1,
-	default   => quote_sub(q{ return 0 }),
+	default   => quote_sub(q{ 0 }),
 	predicate => 1,
 	clearer   => 1,
 );
@@ -98,8 +98,13 @@ The default value is B<ZU>.
 
 =cut
 
-has 'mfi' =>
-	( is => 'rw', lazy => 1, trigger => 1, default => 'ZU', predicate => 1, clearer => 1, );
+has 'mfi' => (
+	is        => 'rw', lazy => 1,
+	trigger   => 1,
+	default   => quote_sub(q{ "ZU" }),
+	predicate => 1,
+	clearer   => 1,
+);
 
 sub _trigger_mfi {
 	my ( $self, $newVal ) = @_;
@@ -125,7 +130,7 @@ the only currently supported version.
 has 'version' => (
 	is        => 'rw', lazy => 1,
 	trigger   => 1,
-	default   => quote_sub(q{ return 2 }),
+	default   => quote_sub(q{ 2 }),
 	predicate => 1,
 	clearer   => 1,
 );

@@ -159,7 +159,7 @@ has 'mode' => (
 		return $val if ( $val eq 'strict' or $val eq 'lax' );
 		return 'lax';
 	},
-	default => 'lax',
+	default => quote_sub(q{ "lax" }),
 );
 
 =item C<parsedString>
