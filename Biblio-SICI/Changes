@@ -1,5 +1,7 @@
 
 {{$NEXT}}
+
+0.04      2014-01-14 22:02:39 Europe/Berlin
 	- Fix compatibility with Moo <= 1.000008 which did not allow simple
 		scalars as default values
 
